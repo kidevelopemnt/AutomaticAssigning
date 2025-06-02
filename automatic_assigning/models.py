@@ -37,6 +37,7 @@ def matches(obj, key, value):
         raise ValueError(f"Unsupported lookup: {lookup}")
 
 
+_sentinel = object()
 class ModelObjectsManager:
     def __init__(self, model_cls):
         self.model_cls = model_cls
@@ -51,11 +52,11 @@ class ModelObjectsManager:
                 results.append(obj)
         return results
 
-    def get(self, pk=None, default=None, **kwargs):
+    def get(self, pk=None, default=_sentinel, **kwargs):
         if pk:
             kwargs[self.model_cls.pk_field] = pk
         matches = self.filter(**kwargs)
-        if not matches and not default:
+        if not matches and default is _sentinel:
             raise ValueError("No matching object found.")
         if not matches:
             return default
@@ -155,7 +156,7 @@ class AssignmentSlot(Model):
 
 
 class AssignmentSlots(Model):
-    def __init__(self, slots: list[AssignmentSlot]):
+    def __init__(self, *slots: AssignmentSlot):
         """
         EXAMPLE
         class Flight(Model):
@@ -168,6 +169,52 @@ class AssignmentSlots(Model):
         self.slots = slots
 
         super().__init__()
+
+    @property
+    def _assigned_objects(self):
+        return [(slot, obj) for slot in self.slots for obj in slot.assigned_objects]
+
+    def get_needed_assignments(self):
+        needed = []
+        for slot in self.slots:
+            if not slot.should_assign:
+                continue
+            for i in range(slot.amount - len(slot.assigned_objects)):
+                needed.append(slot)
+
+        return needed
+
+    def find_assigned_object(self, obj_to_find):
+        for slot, obj in self._assigned_objects:
+            if obj == obj_to_find:
+                return slot
+
+        return None
+
+    def __setitem__(self, key: str, value: AssignmentObject):
+        # key should be slot.position.name
+        for slot in self.slots:
+            if slot.position.name == key:
+                if type(value) is slot.position.object_to_assign:
+                    slot.assigned_objects.append(value)
+                    return
+                else:
+                    print(value, slot.position.object_to_assign)
+                    raise TypeError(f"Attempted to assign incorrect type to AssignmentSlot. "
+                                    f"Assigned: {type(value)}, Expected: {slot.position.object_to_assign}")
+
+        raise KeyError(f"Could not find {key} in AssignmentSlots")
+
+    def __getitem__(self, key: str):
+        # key should be slot.position.name
+        for slot in self.slots:
+            if slot.position.name == key:
+                return slot.assigned_objects
+
+        raise KeyError(f"Could not find {key} in AssignmentSlots")
+
+    def __iter__(self):
+        yield from self._assigned_objects
 
 
 class EventType(Model):
@@ -220,3 +267,7 @@ class Event(Model):
         if self.duration_override:
             return self.duration_override
         return self.event_type.default_duration
+
+    @property
+    def end_time(self):
+        return self.start_time + self.duration
