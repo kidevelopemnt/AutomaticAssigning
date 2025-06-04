@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Type
 
 
 def resolve_lookup(obj, dotted_path):
@@ -56,9 +57,9 @@ class ModelObjectsManager:
         if pk:
             kwargs[self.model_cls.pk_field] = pk
         matches = self.filter(**kwargs)
-        if not matches and default is _sentinel:
+        if (len(kwargs) == 0 or not matches) and default is _sentinel:
             raise ValueError("No matching object found.")
-        if not matches:
+        if (len(kwargs) == 0 or not matches):
             return default
         if len(matches) > 1:
             raise ValueError("Multiple objects found.")
@@ -95,19 +96,8 @@ class AssignmentObject(Model):
     """
     pass
 
-
-class AssignmentPosition(Model):
-    def __init__(self, name: str, object_to_assign: AssignmentObject):
-        """
-
-        :param name: Name of the position (e.x. "Captain" "Flight Attendant" "Assistant Referee"
-        :param object_to_assign: Object that will be assigned (e.x. CrewMember, Aircraft, Official)
-        """
-
-        self.name = name
-        self.object_to_assign = object_to_assign
-
-        super().__init__()
+    def can_be_assigned(self, event: "Event", slot: "AssignmentSlot"):
+        print(event, slot)
 
 
 class AssignmentRule(Model):
@@ -116,7 +106,7 @@ class AssignmentRule(Model):
 
         super().__init__()
 
-    def evaluate(self):
+    def evaluate_should_assign(self):
         if self.rule_text == "ALWAYS":
             return True
         if self.rule_text == "NEVER":
@@ -132,30 +122,41 @@ class AssignmentRule(Model):
 
 ALWAYS_RULE = AssignmentRule("ALWAYS")
 NEVER_RULE = AssignmentRule("NEVER")
+ANY_RULE = AssignmentRule("ANY")
 
 
 class AssignmentSlot(Model):
-    def __init__(self, position: AssignmentPosition, amount: int = 1, rule: AssignmentRule = ALWAYS_RULE):
+    def __init__(self, name: str, object_to_assign: Type[AssignmentObject], amount: int = 1,
+                 should_assign_rule: AssignmentRule = ALWAYS_RULE, rule: AssignmentRule = ANY_RULE):
         """
 
-        :param position: Position that this is a slot for
+        :param name: Name of this slot (e.x. Center Referee, Pilot, Aircraft)
+        :param object_to_assign: Object to assign in this slot (e.x. CrewMember, Referee, Aircraft)
         :param amount: Amount of objects to be assigned to this slot
-        :param rule: Rule for when this slot should be automatically filled (default is ALWAYS)
+        :param should_assign_rule: Rule for when this slot should be automatically filled (default is ALWAYS)
+        :param rule: Rule for who/what can be assigned to this slot (default is ANY)
         """
 
-        self.position = position
+        self.name = name
+        self.object_to_assign = object_to_assign
         self.amount = amount
-        self.rule = rule
+        self.should_assign_rule = should_assign_rule
         self.assigned_objects = []
 
-        super().__init__()
+        super().__init__("name")
 
     @property
     def should_assign(self):
-        return self.rule.evaluate()
+        return self.should_assign_rule.evaluate_should_assign()
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
 
 
-class AssignmentSlots(Model):
+class AssignmentGroup(Model):
     def __init__(self, *slots: AssignmentSlot):
         """
         EXAMPLE
@@ -174,6 +175,23 @@ class AssignmentSlots(Model):
     def _assigned_objects(self):
         return [(slot, obj) for slot in self.slots for obj in slot.assigned_objects]
 
+    def get_assigned_objects_by_slot(self):
+        res = []
+        working_slot = None
+        building = []
+
+        for slot, obj in self._assigned_objects:
+            if working_slot is None:
+                working_slot = slot
+            elif working_slot != slot:
+                res.append((slot, building))
+                building = []
+                working_slot = slot
+
+            building.append(obj)
+
+        return res
+
     def get_needed_assignments(self):
         needed = []
         for slot in self.slots:
@@ -191,15 +209,23 @@ class AssignmentSlots(Model):
 
         return None
 
+    def unassign(self, obj):
+        slot = self.find_assigned_object(obj)
+        if slot:
+            slot.assigned_objects.remove(obj)
+
+    def clear(self):
+        for slot in self.slots:
+            slot.assigned_objects = []
+
     def __setitem__(self, key: str, value: AssignmentObject):
         # key should be slot.position.name
         for slot in self.slots:
             if slot.position.name == key:
-                if type(value) is slot.position.object_to_assign:
+                if type(value) is slot.position.object_to_assign or value is None:
                     slot.assigned_objects.append(value)
                     return
                 else:
-                    print(value, slot.position.object_to_assign)
                     raise TypeError(f"Attempted to assign incorrect type to AssignmentSlot. "
                                     f"Assigned: {type(value)}, Expected: {slot.position.object_to_assign}")
 
@@ -215,6 +241,15 @@ class AssignmentSlots(Model):
 
     def __iter__(self):
         yield from self._assigned_objects
+
+    def __eq__(self, other):
+        if type(other) == AssignmentGroup:
+            return [s.name for s in self.slots] == [s.name for s in other.slots]
+
+        return False
+
+    def __repr__(self):
+        return f"AssignmentGroup({', '.join([s.name for s in self.slots])})"
 
 
 class EventType(Model):
@@ -241,6 +276,7 @@ class Event(Model):
         self.name = name
         self.event_type = event_type
         self.start_time = start_time
+        self.groups: list[EventGroup] = []
 
         self.assignment_buffer_override = None
         self.duration_override = None
@@ -257,6 +293,15 @@ class Event(Model):
         super().__init__("event_id")
 
     @property
+    def assignment_groups(self):
+        s = []
+        for field, value in self.__dict__.items():
+            if type(value) == AssignmentGroup:
+                s.append(value)
+
+        return s
+
+    @property
     def assignment_buffer(self):
         if self.assignment_buffer_override:
             return self.assignment_buffer_override
@@ -268,6 +313,41 @@ class Event(Model):
             return self.duration_override
         return self.event_type.default_duration
 
+    @duration.setter
+    def duration(self, value):
+        self.duration_override = value
+
     @property
     def end_time(self):
         return self.start_time + self.duration
+
+    def get_assignment_group(self, group):
+        for as_group in self.assignment_groups:
+            if as_group == group:
+                return as_group
+
+
+class EventGroup(Model):
+    def __init__(self, name, try_keep_assignments_in_group=True):
+        """
+        Group your events together (events can be in an infinite number of groups)
+        Examples: Venue, Field, Route
+        :param name:
+        :param try_keep_assignments_in_group: If true, the assigner will try to keep assignments made for events in this
+            group be the same across events in this group (e.x. you want to keep referees on the same field,
+            you want to keep aircraft on the same route, etc.)
+        """
+
+        self.name = name
+        self.try_keep_assignments_in_group = try_keep_assignments_in_group
+
+        super().__init__()
+
+    def get_events(self, event_type: Type[Event]):
+        return event_type.objects.filter(groups__contains=self)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name

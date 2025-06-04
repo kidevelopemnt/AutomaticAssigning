@@ -9,19 +9,16 @@ Route        |                |
 
 AutomaticAssigning
 
-AssignmentPosition    Captain/Co-Captain/Flight Attendant/Aircraft | Center Referee/Assistant Referee/Umpire/Line Judge/etc.
-- name
-- object_to_assign    CrewMember/Aircraft                          | Official
-
 AssignmentObject      CrewMember/Aircraft                          | Official
 (models that will be assigned will inherit from this base model)
 
 AssignmentSlot
-- position: AssignmentPosition
+- name: str
+- object_to_assign: Type[AssignmentObject]
 - amount: int
 - assignment_rule: str = "ALWAYS"  (ALWAYS: always assign this slot, NEVER: never automatically assign, "OBJECT.experience < 10": assign only if experience is less than 10 games)
 
-AssignmentSlots
+AssignmentGroup
 - slots: list[AssignmentSlot]
 
 
