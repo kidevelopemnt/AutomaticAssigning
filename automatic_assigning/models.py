@@ -94,10 +94,22 @@ class AssignmentObject(Model):
     """
     Base class for objects that will be assigned to a slot (CrewMember, Aircraft, Official) to inherit from
     """
-    pass
+    def __init__(self, availability, default_availability=False):
+        self.availability = availability
+        self.default_availability = default_availability
+
+        super().__init__()
+
+    def is_available(self, start_dt, end_dt):
+        # TODO: Check availability
+
+        return self.default_availability  # If there is no availability for this dt range
 
     def can_be_assigned(self, event: "Event", slot: "AssignmentSlot"):
-        print(event, slot)
+        if not self.is_available(event.start_time, event.end_time):
+            return False
+
+        return True
 
 
 class AssignmentRule(Model):
@@ -174,6 +186,10 @@ class AssignmentGroup(Model):
     @property
     def _assigned_objects(self):
         return [(slot, obj) for slot in self.slots for obj in slot.assigned_objects]
+
+    @property
+    def slots_names(self):
+        return [slot.name for slot in self.slots]
 
     def get_assigned_objects_by_slot(self):
         res = []

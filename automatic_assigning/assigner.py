@@ -39,7 +39,7 @@ class Assigner:
                     if slot.assigned_objects:
                         for obj in slot.assigned_objects:
                             if obj.can_be_assigned(event, slot):
-                                this_slot: AssignmentSlot = assignment_group.slots[assignment_group.slots.index(slot)]
+                                this_slot: AssignmentSlot = assignment_group.slots[assignment_group.slots_names.index(slot.name)]
                                 this_slot.assigned_objects.append(obj)
 
         # Increment counter
