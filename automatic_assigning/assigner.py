@@ -17,7 +17,7 @@ class Assigner:
                 self.assign_group(event, group, scheduled_count)
 
         for slot, amount in scheduled_count:
-            print(f"Scheduled {amount} {slot.position.name}s")
+            print(f"Scheduled {amount} {slot.name}s")
             # records.save_flights_to_db()
 
     def assign_group(self, event: Event, assignment_group: AssignmentGroup, scheduled_count: dict):
@@ -39,7 +39,7 @@ class Assigner:
                         for obj in slot.assigned_objects:
                             if obj.can_be_assigned(event, this_slot, assignment_group):
                                 this_slot.assigned_objects.append(obj)
-                                obj.events.append(event)
+                                obj.schedule.append(event)
 
         needed_slots = assignment_group.get_needed_assignments()
         slot: AssignmentSlot
@@ -49,7 +49,7 @@ class Assigner:
             for obj in slot.object_to_assign.objects.all():
                 if obj.can_be_assigned(event, slot, assignment_group):
                     slot.assigned_objects.append(obj)
-                    obj.events.append(event)
+                    obj.schedule.append(event)
                     assigned = True
                     break
 

@@ -98,15 +98,17 @@ class AssignmentObject(Model):
         self.availability = availability
         self.default_availability = default_availability
 
-        self.events = []
+        self.schedule = []
 
         super().__init__()
 
-    def is_available(self, start_dt, end_dt):
+    def is_available(self, event, group):
+        start_dt = event.start_time
+        end_dt = event.end_time
         # TODO: Check availability
 
         # TODO: Check overlap and buffer
-        for event in self.events:
+        for event in self.schedule:
             event_start = event.start_time
             event_end = event.end_time
 
@@ -114,13 +116,13 @@ class AssignmentObject(Model):
                 return False  # Overlaps, not available
 
             # Ensure break period
-            if event_end + event.assignment_buffer > start_dt and event_start < end_dt:
+            if event_end + group.assignment_buffer > start_dt and event_start < end_dt:
                 return False
 
         return self.default_availability  # If there is no availability for this dt range
 
     def can_be_assigned(self, event: "Event", slot: "AssignmentSlot", group: "AssignmentGroup"):
-        if not self.is_available(event.start_time, event.end_time):
+        if not self.is_available(event, group):
             return False
 
         if group.find_assigned_object(self):  # Make sure it isn't assigned to any slot in the group
@@ -187,7 +189,7 @@ class AssignmentSlot(Model):
 
 
 class AssignmentGroup(Model):
-    def __init__(self, *slots: AssignmentSlot):
+    def __init__(self, *slots: AssignmentSlot, **kwargs):
         """
         EXAMPLE
         class Flight(Model):
@@ -198,6 +200,10 @@ class AssignmentGroup(Model):
         """
 
         self.slots = slots
+        self.assignment_buffer: timedelta = timedelta(minutes=15)
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
         super().__init__()
 
@@ -254,22 +260,22 @@ class AssignmentGroup(Model):
             slot.assigned_objects = []
 
     def __setitem__(self, key: str, value: AssignmentObject):
-        # key should be slot.position.name
+        # key should be slot.name
         for slot in self.slots:
-            if slot.position.name == key:
-                if type(value) is slot.position.object_to_assign or value is None:
+            if slot.name == key:
+                if type(value) is slot.object_to_assign or value is None:
                     slot.assigned_objects.append(value)
                     return
                 else:
                     raise TypeError(f"Attempted to assign incorrect type to AssignmentSlot. "
-                                    f"Assigned: {type(value)}, Expected: {slot.position.object_to_assign}")
+                                    f"Assigned: {type(value)}, Expected: {slot.object_to_assign}")
 
         raise KeyError(f"Could not find {key} in AssignmentSlots")
 
     def __getitem__(self, key: str):
-        # key should be slot.position.name
+        # key should be slot.name
         for slot in self.slots:
-            if slot.position.name == key:
+            if slot.name == key:
                 return slot.assigned_objects
 
         raise KeyError(f"Could not find {key} in AssignmentSlots")
@@ -288,10 +294,9 @@ class AssignmentGroup(Model):
 
 
 class EventType(Model):
-    def __init__(self, name: str, default_duration: timedelta, assignment_buffer: timedelta = timedelta(minutes=15)):
+    def __init__(self, name: str, default_duration: timedelta):
         self.name = name
         self.default_duration = default_duration
-        self.assignment_buffer = assignment_buffer
 
         super().__init__()
 
@@ -313,15 +318,12 @@ class Event(Model):
         self.start_time = start_time
         self.groups: list[EventGroup] = []
 
-        self.assignment_buffer_override = None
         self.duration_override = None
 
         for k, v in kwargs.items():
             # Allow user to type "duration" instead of "duration_override"
             if k == "duration":
                 k = "duration_override"
-            elif k == "assignment_buffer":
-                k = "assignment_buffer_override"
 
             setattr(self, k, v)
 
@@ -335,12 +337,6 @@ class Event(Model):
                 s.append(value)
 
         return s
-
-    @property
-    def assignment_buffer(self):
-        if self.assignment_buffer_override:
-            return self.assignment_buffer_override
-        return self.event_type.assignment_buffer
 
     @property
     def duration(self):

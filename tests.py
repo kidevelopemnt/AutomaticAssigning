@@ -37,12 +37,12 @@ class AssignerTest(TestCase):
         u9_10 = AgeGroup("U9/10", timedelta(minutes=55))
         u11_12 = AgeGroup("U11/12", timedelta(hours=1, minutes=5))
 
-        ref1 = Referee("Ref 1")
-        ref2 = Referee("Ref 2")
-        ref3 = Referee("Ref 3")
-        ref4 = Referee("Ref 4")
-        ref5 = Referee("Ref 5")
-        ref6 = Referee("Ref 6")
+        ref1 = Referee("Ref 1")  # Super qualified, been working forever
+        ref2 = Referee("Ref 2")  # U12- Center, U16- AR
+        ref3 = Referee("Ref 3")  # U12- Center, U12- AR
+        ref4 = Referee("Ref 4")  # U10- Center, U12- AR
+        ref5 = Referee("Ref 5")  # Brand new, U10- AR
+        ref6 = Referee("Ref 6")  # Brand new, U10- AR
         unavailable_ref = Referee("Ref0")
 
         game11 = Game("GAME11", "Game #11", u9_10, datetime(2025, 6, 9, 8, 0), field1)   # 06/09/25 08:00 AM
