@@ -63,9 +63,18 @@ class AssignerTest(TestCase):
         game21 = Game.objects.get("GAME21")
         game22 = Game.objects.get("GAME22")
 
+        game: Game
+        for game in [game11, game12, game21, game22]:
+            print(game.name)
+            for assignment_group in game.assignment_groups:
+                # print(assignment_group)
+                for slot in assignment_group.slots:
+                    print(slot.name, [obj.name for obj in slot.assigned_objects])
+
         self.assertEqual(game11.referees.slots[0].assigned_objects, game12.referees.slots[0].assigned_objects)
         self.assertEqual(game11.referees.slots[1].assigned_objects, game12.referees.slots[1].assigned_objects)
 
         self.assertEqual(game21.referees.slots[1].assigned_objects, game22.referees.slots[1].assigned_objects)
         self.assertEqual(game21.referees.slots[1].assigned_objects, game22.referees.slots[1].assigned_objects)
+
 

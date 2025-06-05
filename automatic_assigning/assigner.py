@@ -11,8 +11,6 @@ class Assigner:
         if events is None:
             events = event_class.objects.all()
 
-        print("Assign events")
-
         scheduled_count = {}  # slot: amount
         for event in events:
             for group in event.assignment_groups:
@@ -37,10 +35,24 @@ class Assigner:
                 prev: AssignmentGroup = stay_in_group.get_events(event_type)[event_group_index - 1].get_assignment_group(assignment_group)
                 for slot in prev.slots:
                     if slot.assigned_objects:
+                        this_slot: AssignmentSlot = assignment_group.slots[assignment_group.slots_names.index(slot.name)]
                         for obj in slot.assigned_objects:
-                            if obj.can_be_assigned(event, slot):
-                                this_slot: AssignmentSlot = assignment_group.slots[assignment_group.slots_names.index(slot.name)]
+                            if obj.can_be_assigned(event, this_slot, assignment_group):
                                 this_slot.assigned_objects.append(obj)
+
+        needed_slots = assignment_group.get_needed_assignments()
+        slot: AssignmentSlot
+        for slot in needed_slots:
+            assigned = False
+
+            for obj in slot.object_to_assign.objects.all():
+                if obj.can_be_assigned(event, slot, assignment_group):
+                    slot.assigned_objects.append(obj)
+                    assigned = True
+                    break
+
+            if not assigned:
+                print(f"[ERR] Could not assign {slot.name} for event {event.event_id}")
 
         # Increment counter
         return True

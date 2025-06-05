@@ -103,10 +103,21 @@ class AssignmentObject(Model):
     def is_available(self, start_dt, end_dt):
         # TODO: Check availability
 
+        # TODO: Check overlap
+
+        # TODO: Check buffer
+
         return self.default_availability  # If there is no availability for this dt range
 
-    def can_be_assigned(self, event: "Event", slot: "AssignmentSlot"):
+    def can_be_assigned(self, event: "Event", slot: "AssignmentSlot", group: "AssignmentGroup"):
         if not self.is_available(event.start_time, event.end_time):
+            return False
+
+        assigned_objects_by_slot = group.get_assigned_objects_by_slot()
+        assigned_objects = [y for x in assigned_objects_by_slot for y in x[1]]
+        if slot.name == "Assistant Referee":
+            print(assigned_objects_by_slot)
+        if self in assigned_objects:  # Make sure it isn't assigned to any slot in the group
             return False
 
         return True
@@ -200,12 +211,14 @@ class AssignmentGroup(Model):
             if working_slot is None:
                 working_slot = slot
             elif working_slot != slot:
-                res.append((slot, building))
+                res.append((working_slot, building))
+                print(res)
                 building = []
                 working_slot = slot
 
             building.append(obj)
 
+        res.append((working_slot, building))
         return res
 
     def get_needed_assignments(self):
