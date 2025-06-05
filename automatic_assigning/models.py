@@ -98,14 +98,24 @@ class AssignmentObject(Model):
         self.availability = availability
         self.default_availability = default_availability
 
+        self.events = []
+
         super().__init__()
 
     def is_available(self, start_dt, end_dt):
         # TODO: Check availability
 
-        # TODO: Check overlap
+        # TODO: Check overlap and buffer
+        for event in self.events:
+            event_start = event.start_time
+            event_end = event.end_time
 
-        # TODO: Check buffer
+            if start_dt < event_end and end_dt > event_start:
+                return False  # Overlaps, not available
+
+            # Ensure break period
+            if event_end + event.assignment_buffer > start_dt and event_start < end_dt:
+                return False
 
         return self.default_availability  # If there is no availability for this dt range
 
@@ -113,11 +123,7 @@ class AssignmentObject(Model):
         if not self.is_available(event.start_time, event.end_time):
             return False
 
-        assigned_objects_by_slot = group.get_assigned_objects_by_slot()
-        assigned_objects = [y for x in assigned_objects_by_slot for y in x[1]]
-        if slot.name == "Assistant Referee":
-            print(assigned_objects_by_slot)
-        if self in assigned_objects:  # Make sure it isn't assigned to any slot in the group
+        if group.find_assigned_object(self):  # Make sure it isn't assigned to any slot in the group
             return False
 
         return True
@@ -134,6 +140,7 @@ class AssignmentRule(Model):
             return True
         if self.rule_text == "NEVER":
             return False
+        return None
 
         # TODO: Evaluate rule text
 
@@ -212,7 +219,6 @@ class AssignmentGroup(Model):
                 working_slot = slot
             elif working_slot != slot:
                 res.append((working_slot, building))
-                print(res)
                 building = []
                 working_slot = slot
 
@@ -354,6 +360,7 @@ class Event(Model):
         for as_group in self.assignment_groups:
             if as_group == group:
                 return as_group
+        return None
 
 
 class EventGroup(Model):

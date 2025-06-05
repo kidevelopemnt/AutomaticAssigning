@@ -39,6 +39,7 @@ class Assigner:
                         for obj in slot.assigned_objects:
                             if obj.can_be_assigned(event, this_slot, assignment_group):
                                 this_slot.assigned_objects.append(obj)
+                                obj.events.append(event)
 
         needed_slots = assignment_group.get_needed_assignments()
         slot: AssignmentSlot
@@ -48,6 +49,7 @@ class Assigner:
             for obj in slot.object_to_assign.objects.all():
                 if obj.can_be_assigned(event, slot, assignment_group):
                     slot.assigned_objects.append(obj)
+                    obj.events.append(event)
                     assigned = True
                     break
 

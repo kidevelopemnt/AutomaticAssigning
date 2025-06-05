@@ -42,16 +42,16 @@ class AssignerTest(TestCase):
         ref3 = Referee("Ref 3")
         ref4 = Referee("Ref 4")
         ref5 = Referee("Ref 5")
-        ref6 = Referee("Ref 5")
-        unavailable_ref = Referee("Ref6")
+        ref6 = Referee("Ref 6")
+        unavailable_ref = Referee("Ref0")
 
         game11 = Game("GAME11", "Game #11", u9_10, datetime(2025, 6, 9, 8, 0), field1)   # 06/09/25 08:00 AM
-        game11.referees.slots[0].assigned_objects.append(ref1)
-        game11.referees.slots[1].assigned_objects.append(ref2)
-        game11.referees.slots[1].assigned_objects.append(ref3)
-        game12 = Game("GAME12", "Game #12", u9_10, datetime(2025, 6, 9, 10, 0), field1)  # 06/09/25 10:00 AM
+        # game11.referees.slots[0].assigned_objects.append(ref1)
+        # game11.referees.slots[1].assigned_objects.append(ref2)
+        # game11.referees.slots[1].assigned_objects.append(ref3)
+        game12 = Game("GAME12", "Game #12", u9_10, datetime(2025, 6, 9, 9, 30), field1)  # 06/09/25 09:30 AM
 
-        game21 = Game("GAME21", "Game #21", u11_12, datetime(2025, 6, 9, 10, 0), field2)  # 06/09/25 08:00 AM
+        game21 = Game("GAME21", "Game #21", u11_12, datetime(2025, 6, 9, 8, 0), field2)  # 06/09/25 08:00 AM
         game22 = Game("GAME22", "Game #22", u11_12, datetime(2025, 6, 9, 10, 0), field2)  # 06/09/25 10:00 AM
 
     def test_assigning(self):
