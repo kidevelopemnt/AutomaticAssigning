@@ -34,6 +34,9 @@ class Assigner:
                 # Try to copy over assignments for the last slot
                 prev: AssignmentGroup = stay_in_group.get_events(event_type)[event_group_index - 1].get_assignment_group(assignment_group)
                 for slot in prev.slots:
+                    if not slot.should_assign:
+                        continue
+
                     if slot.assigned_objects:
                         this_slot: AssignmentSlot = assignment_group.slots[assignment_group.slots_names.index(slot.name)]
                         for obj in slot.assigned_objects:
@@ -44,6 +47,9 @@ class Assigner:
         needed_slots = assignment_group.get_needed_assignments()
         slot: AssignmentSlot
         for slot in needed_slots:
+            if not slot.should_assign:
+                continue
+
             assigned = False
 
             for obj in slot.object_to_assign.objects.all():

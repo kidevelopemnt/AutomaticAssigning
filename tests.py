@@ -2,7 +2,7 @@ from datetime import timedelta, datetime
 from unittest import TestCase
 from automatic_assigning.assigner import Assigner
 from automatic_assigning.models import Event, EventType, AssignmentGroup, AssignmentSlot, \
-    AssignmentObject, EventGroup
+    AssignmentObject, EventGroup, NEVER_RULE
 
 
 class FieldGroup(EventGroup):

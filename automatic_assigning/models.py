@@ -107,7 +107,7 @@ class AssignmentObject(Model):
         end_dt = event.end_time
         # TODO: Check availability
 
-        # TODO: Check overlap and buffer
+        # Check overlap and buffer
         for event in self.schedule:
             event_start = event.start_time
             event_end = event.end_time
@@ -124,10 +124,6 @@ class AssignmentObject(Model):
     def can_be_assigned(self, event: "Event", slot: "AssignmentSlot", group: "AssignmentGroup"):
         if not self.is_available(event, group):
             return False
-
-        if group.find_assigned_object(self):  # Make sure it isn't assigned to any slot in the group
-            return False
-
         return True
 
 
@@ -135,16 +131,52 @@ class AssignmentRule(Model):
     def __init__(self, rule_text):
         self.rule_text = rule_text
 
+
+        if group.find_assigned_object(self):  # Make sure it isn't assigned to any slot in the group
+            return False
+
+        if not slot.rule.evaluate_can_be_assigned(self):
+            return False
+
         super().__init__()
 
     def evaluate_should_assign(self):
+        """
+        Decide if autoassign should fill this slot
+        :return:
+        """
+
         if self.rule_text == "ALWAYS":
             return True
         if self.rule_text == "NEVER":
             return False
-        return None
 
         # TODO: Evaluate rule text
+        """
+        ALWAYS                                     # Always auto-assign this slot
+        NEVER                                      # Never auto-assign this slot
+        WHEN event.start_time <= 12:00 PM          # Assign only if the start time is before noon
+        """
+
+        return False
+
+    def evaluate_can_be_assigned(self, obj: "AssignmentObject"):
+        """
+        Decide if this object is allowed to fill this slot
+        :return:
+        """
+
+        if self.rule_text == "ANY":
+            return True
+
+        # TODO: Evaluate rule text
+        """
+        ANY                                        # Any object of this type 
+        WHEN obj.age >= event.age_group.age + 2    # Assign only if the obj is 2 years older than age group (e.x. for assigning centers)
+        
+        """
+
+        return False
 
     def __eq__(self, other):
         if type(other) is AssignmentRule:
@@ -172,6 +204,7 @@ class AssignmentSlot(Model):
         self.name = name
         self.object_to_assign = object_to_assign
         self.amount = amount
+        self.rule = rule
         self.should_assign_rule = should_assign_rule
         self.assigned_objects = []
 
